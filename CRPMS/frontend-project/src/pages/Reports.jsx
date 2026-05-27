@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import api from '../api/axios';
 import toast from 'react-hot-toast';
-import { MdBarChart, MdSearch, MdPrint } from 'react-icons/md';
+import { MdBarChart, MdSearch, MdPrint, MdRefresh } from 'react-icons/md';
 
 const STATUS_STYLES = {
   Paid:    'bg-green-100 text-green-700',
@@ -11,6 +11,8 @@ const STATUS_STYLES = {
 
 export default function Reports() {
   const [tab, setTab]             = useState('bill');
+
+  useEffect(() => { document.title = 'Reports · SmartPark CRPMS'; }, []);
 
   // Service Bill state
   const [billData, setBillData]   = useState([]);
@@ -54,17 +56,25 @@ export default function Reports() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Reports</h1>
           <p className="text-gray-500 text-sm mt-1">Service bills and daily payment reports</p>
         </div>
-        <button
-          onClick={handlePrint}
-          className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors shadow-sm"
-        >
-          <MdPrint size={18} /> Print
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={tab === 'bill' ? fetchBill : fetchDaily}
+            className="flex items-center gap-1.5 border border-gray-200 hover:border-purple-300 text-gray-600 hover:text-purple-700 bg-white px-3 py-2.5 rounded-xl text-sm font-medium transition-all"
+          >
+            <MdRefresh size={16} className={(tab === 'bill' ? billLoading : dailyLoading) ? 'animate-spin' : ''} /> Refresh
+          </button>
+          <button
+            onClick={handlePrint}
+            className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors shadow-sm"
+          >
+            <MdPrint size={18} /> Print
+          </button>
+        </div>
       </div>
 
       {/* Tabs */}

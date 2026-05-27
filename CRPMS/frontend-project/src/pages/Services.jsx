@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import api from '../api/axios';
 import toast from 'react-hot-toast';
-import { MdAdd, MdBuild, MdEdit, MdDelete } from 'react-icons/md';
+import { MdAdd, MdBuild, MdEdit, MdDelete, MdRefresh, MdSearch, MdFileDownload } from 'react-icons/md';
+import { FiAlertCircle } from 'react-icons/fi';
 
 const EMPTY = { serviceCode: '', serviceName: '', servicePrice: '', serviceDescription: '' };
 
@@ -27,12 +28,33 @@ export default function Services() {
   const [form, setForm]         = useState(EMPTY);
   const [errors, setErrors]     = useState({});
   const [loading, setLoading]   = useState(false);
+  const [fetching, setFetching] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId]     = useState(null);
   const [del, setDel]           = useState(null);
+  const [search, setSearch]     = useState('');
 
-  const fetch = () => api.get('/services').then(r => setServices(r.data)).catch(console.error);
+  useEffect(() => { document.title = 'Services · SmartPark CRPMS'; }, []);
+
+  const fetch = () => { setFetching(true); api.get('/services').then(r => setServices(r.data)).catch(console.error).finally(() => setFetching(false)); };
   useEffect(() => { fetch(); }, []);
+
+  const exportCSV = () => {
+    const headers = ['Code', 'Service Name', 'Price (RWF)', 'Description'];
+    const rows = filtered.map(s => [s.serviceCode, s.serviceName, s.servicePrice, s.serviceDescription || '']);
+    const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = `services-${new Date().toISOString().slice(0, 10)}.csv`; a.click();
+    URL.revokeObjectURL(url);
+    toast.success('CSV exported');
+  };
+
+  const filtered = services.filter(s =>
+    !search || s.serviceCode.toLowerCase().includes(search.toLowerCase()) ||
+    s.serviceName.toLowerCase().includes(search.toLowerCase()) ||
+    (s.serviceDescription || '').toLowerCase().includes(search.toLowerCase())
+  );
 
   const validate = () => {
     const e = {};
@@ -73,14 +95,22 @@ export default function Services() {
   return (
     <div className="space-y-6">
       {del && <Modal name={del.serviceName} onConfirm={handleDelete} onCancel={() => setDel(null)} />}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Services</h1>
           <p className="text-gray-500 text-sm mt-1">Manage repair service catalog</p>
         </div>
-        <button onClick={openCreate} className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors shadow-sm">
-          <MdAdd size={20} /> Add Service
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={fetch} disabled={fetching} className="flex items-center gap-1.5 border border-gray-200 hover:border-purple-300 text-gray-600 hover:text-purple-700 bg-white px-3 py-2.5 rounded-xl text-sm font-medium transition-all" title="Refresh">
+            <MdRefresh size={16} className={fetching ? 'animate-spin' : ''} /> Refresh
+          </button>
+          <button onClick={exportCSV} disabled={services.length === 0} className="flex items-center gap-1.5 border border-gray-200 hover:border-purple-300 text-gray-600 hover:text-purple-700 bg-white px-3 py-2.5 rounded-xl text-sm font-medium transition-all disabled:opacity-40" title="Export CSV">
+            <MdFileDownload size={16} /> Export
+          </button>
+          <button onClick={openCreate} className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors shadow-sm">
+            <MdAdd size={20} /> Add Service
+          </button>
+        </div>
       </div>
       {showForm && (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
@@ -117,8 +147,12 @@ export default function Services() {
         </div>
       )}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100">
-          <p className="text-sm text-gray-500">{services.length} service(s) available</p>
+        <div className="px-6 py-4 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <p className="text-sm text-gray-500">{filtered.length} / {services.length} service(s)</p>
+          <div className="relative max-w-xs w-full sm:w-auto">
+            <MdSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+            <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by code, name..." className="w-full pl-9 pr-3 py-2 rounded-xl border border-gray-200 bg-gray-50 focus:border-purple-500 focus:bg-white text-sm outline-none transition-all" />
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -130,9 +164,19 @@ export default function Services() {
               </tr>
             </thead>
             <tbody>
-              {services.length === 0 ? (
-                <tr><td colSpan={5} className="text-center py-12 text-gray-400">No services yet</td></tr>
-              ) : services.map(s => (
+              {filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="text-center py-16">
+                    <div className="flex flex-col items-center gap-3">
+                      <FiAlertCircle size={40} className="text-gray-300" />
+                      <p className="text-gray-400 font-medium">{search ? 'No services match your search' : 'No services yet'}</p>
+                      {!search && (
+                        <button onClick={openCreate} className="text-purple-600 hover:text-purple-700 text-sm font-medium">+ Add your first service</button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ) : filtered.map(s => (
                 <tr key={s._id} className="border-b border-gray-50 hover:bg-purple-50 transition-colors">
                   <td className="py-3 px-4 font-bold text-purple-700">{s.serviceCode}</td>
                   <td className="py-3 px-4 font-medium text-gray-800">{s.serviceName}</td>

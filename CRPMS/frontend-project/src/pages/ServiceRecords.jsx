@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import api from '../api/axios';
 import toast from 'react-hot-toast';
-import { MdAdd, MdAssignment, MdEdit, MdDelete } from 'react-icons/md';
+import { MdAdd, MdAssignment, MdEdit, MdDelete, MdRefresh, MdSearch, MdFileDownload } from 'react-icons/md';
+import { FiAlertCircle } from 'react-icons/fi';
 
 const EMPTY = {
   car: '', service: '', serviceDate: '', amountPaid: '', paymentDate: '', paymentStatus: 'Unpaid',
@@ -20,12 +21,17 @@ export default function ServiceRecords() {
   const [form, setForm]         = useState(EMPTY);
   const [errors, setErrors]     = useState({});
   const [loading, setLoading]   = useState(false);
+  const [fetching, setFetching] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId]     = useState(null);
   const [deleteId, setDeleteId] = useState(null);
+  const [search, setSearch]     = useState('');
+
+  useEffect(() => { document.title = 'Service Records · SmartPark CRPMS'; }, []);
 
   const fetchAll = () => {
-    api.get('/servicerecords').then(r => setRecords(r.data)).catch(console.error);
+    setFetching(true);
+    api.get('/servicerecords').then(r => setRecords(r.data)).catch(console.error).finally(() => setFetching(false));
   };
 
   useEffect(() => {
@@ -33,6 +39,28 @@ export default function ServiceRecords() {
     api.get('/cars').then(r => setCars(r.data)).catch(console.error);
     api.get('/services').then(r => setServices(r.data)).catch(console.error);
   }, []);
+
+  const exportCSV = () => {
+    const headers = ['Plate Number', 'Service', 'Service Date', 'Price (RWF)', 'Amount Paid', 'Payment Date', 'Status'];
+    const rows = filtered.map(r => [
+      r.car?.plateNumber || '', r.service?.serviceName || '',
+      r.serviceDate ? new Date(r.serviceDate).toLocaleDateString() : '',
+      r.service?.servicePrice?.toString() || '', r.amountPaid?.toString() || '',
+      r.paymentDate ? new Date(r.paymentDate).toLocaleDateString() : '', r.paymentStatus || '',
+    ]);
+    const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = `service-records-${new Date().toISOString().slice(0, 10)}.csv`; a.click();
+    URL.revokeObjectURL(url);
+    toast.success('CSV exported');
+  };
+
+  const filtered = records.filter(r =>
+    !search || (r.car?.plateNumber || '').toLowerCase().includes(search.toLowerCase()) ||
+    (r.service?.serviceName || '').toLowerCase().includes(search.toLowerCase()) ||
+    (r.paymentStatus || '').toLowerCase().includes(search.toLowerCase())
+  );
 
   const validate = () => {
     const e = {};
@@ -119,17 +147,22 @@ export default function ServiceRecords() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Service Records</h1>
           <p className="text-gray-500 text-sm mt-1">Track car service history and payments</p>
         </div>
-        <button
-          onClick={openCreate}
-          className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors shadow-sm"
-        >
-          <MdAdd size={20} /> Add Record
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={fetchAll} disabled={fetching} className="flex items-center gap-1.5 border border-gray-200 hover:border-purple-300 text-gray-600 hover:text-purple-700 bg-white px-3 py-2.5 rounded-xl text-sm font-medium transition-all" title="Refresh">
+            <MdRefresh size={16} className={fetching ? 'animate-spin' : ''} /> Refresh
+          </button>
+          <button onClick={exportCSV} disabled={records.length === 0} className="flex items-center gap-1.5 border border-gray-200 hover:border-purple-300 text-gray-600 hover:text-purple-700 bg-white px-3 py-2.5 rounded-xl text-sm font-medium transition-all disabled:opacity-40" title="Export CSV">
+            <MdFileDownload size={16} /> Export
+          </button>
+          <button onClick={openCreate} className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors shadow-sm">
+            <MdAdd size={20} /> Add Record
+          </button>
+        </div>
       </div>
 
       {/* Form */}
@@ -253,8 +286,12 @@ export default function ServiceRecords() {
 
       {/* Table */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100">
-          <p className="text-sm text-gray-500">{records.length} record(s) found</p>
+        <div className="px-6 py-4 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <p className="text-sm text-gray-500">{filtered.length} / {records.length} record(s)</p>
+          <div className="relative max-w-xs w-full sm:w-auto">
+            <MdSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+            <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by plate, service, status..." className="w-full pl-9 pr-3 py-2 rounded-xl border border-gray-200 bg-gray-50 focus:border-purple-500 focus:bg-white text-sm outline-none transition-all" />
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -266,11 +303,19 @@ export default function ServiceRecords() {
               </tr>
             </thead>
             <tbody>
-              {records.length === 0 ? (
+              {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="text-center py-12 text-gray-400">No service records yet</td>
+                  <td colSpan={8} className="text-center py-16">
+                    <div className="flex flex-col items-center gap-3">
+                      <FiAlertCircle size={40} className="text-gray-300" />
+                      <p className="text-gray-400 font-medium">{search ? 'No records match your search' : 'No service records yet'}</p>
+                      {!search && (
+                        <button onClick={openCreate} className="text-purple-600 hover:text-purple-700 text-sm font-medium">+ Create your first record</button>
+                      )}
+                    </div>
+                  </td>
                 </tr>
-              ) : records.map(r => (
+              ) : filtered.map(r => (
                 <tr key={r._id} className="border-b border-gray-50 hover:bg-purple-50 transition-colors">
                   <td className="py-3 px-4 font-bold text-purple-700 whitespace-nowrap">{r.car?.plateNumber}</td>
                   <td className="py-3 px-4 text-gray-800 whitespace-nowrap">{r.service?.serviceName}</td>

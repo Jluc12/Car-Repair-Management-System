@@ -4,7 +4,7 @@ import {
   PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
 } from 'recharts';
-import { MdDirectionsCar, MdBuild, MdAssignment, MdAttachMoney, MdPayment } from 'react-icons/md';
+import { MdDirectionsCar, MdBuild, MdAssignment, MdAttachMoney, MdPayment, MdRefresh } from 'react-icons/md';
 
 const STATUS_COLORS = { Paid: '#16a34a', Partial: '#d97706', Unpaid: '#dc2626' };
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -53,13 +53,20 @@ function LoadingSkeleton() {
 export default function Dashboard() {
   const [stats, setStats]     = useState(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
+  useEffect(() => { document.title = 'Dashboard · SmartPark CRPMS'; }, []);
+
+  const loadStats = (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true);
+    else setLoading(true);
     api.get('/dashboard/stats')
       .then(res => setStats(res.data))
       .catch(console.error)
-      .finally(() => setLoading(false));
-  }, []);
+      .finally(() => { setLoading(false); setRefreshing(false); });
+  };
+
+  useEffect(() => { loadStats(); }, []);
 
   if (loading) return <LoadingSkeleton />;
 
@@ -94,9 +101,14 @@ export default function Dashboard() {
 
   return (
     <div className='space-y-6'>
-      <div>
-        <h1 className='text-2xl font-bold text-gray-800'>Dashboard</h1>
-        <p className='text-gray-500 text-sm mt-1'>SmartPark CRPMS — system overview</p>
+      <div className='flex flex-col sm:flex-row sm:items-center justify-between gap-2'>
+        <div>
+          <h1 className='text-2xl font-bold text-gray-800'>Dashboard</h1>
+          <p className='text-gray-500 text-sm mt-1'>SmartPark CRPMS — system overview</p>
+        </div>
+        <button onClick={() => loadStats(true)} disabled={refreshing} className="flex items-center gap-1.5 border border-gray-200 hover:border-purple-300 text-gray-600 hover:text-purple-700 bg-white px-3 py-2 rounded-xl text-sm font-medium transition-all self-start">
+          <MdRefresh size={16} className={refreshing ? 'animate-spin' : ''} /> Refresh
+        </button>
       </div>
 
       {/* Stat cards */}

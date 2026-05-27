@@ -12,3 +12,16 @@ body {
 ::-webkit-scrollbar-track { background: #f3e8ff; }
 ::-webkit-scrollbar-thumb { background: #a855f7; border-radius: 99px; }
 ::-webkit-scrollbar-thumb:hover { background: #7e22ce; }
+
+/* ── print styles for reports ── */
+@media print {
+  body { background: #fff !important; }
+  nav, aside, .sidebar, button, .no-print { display: none !important; }
+  main { padding: 0 !important; margin: 0 !important; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { border: 1px solid #ddd; padding: 8px; }
+}
+
+/* ── page fade-in animation ── */
+main > * { animation: fadeIn 0.25s ease-out; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }

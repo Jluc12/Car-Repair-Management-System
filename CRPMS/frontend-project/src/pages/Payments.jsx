@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import api from '../api/axios';
 import toast from 'react-hot-toast';
-import { MdAdd, MdPayment, MdEdit, MdDelete } from 'react-icons/md';
-import { FiInfo } from 'react-icons/fi';
+import { MdAdd, MdPayment, MdEdit, MdDelete, MdRefresh, MdSearch, MdFileDownload } from 'react-icons/md';
+import { FiInfo, FiAlertCircle } from 'react-icons/fi';
 
 const EMPTY = { serviceRecord: '', car: '', paymentDate: '', receivedBy: '', amountPaid: '' };
 
@@ -27,9 +27,13 @@ export default function Payments() {
   const [form, setForm]           = useState(EMPTY);
   const [errors, setErrors]       = useState({});
   const [loading, setLoading]     = useState(false);
+  const [fetching, setFetching]   = useState(false);
   const [showForm, setShowForm]   = useState(false);
   const [editId, setEditId]       = useState(null);
   const [del, setDel]             = useState(null);
+  const [search, setSearch]       = useState('');
+
+  useEffect(() => { document.title = 'Payments · SmartPark CRPMS'; }, []);
 
   /* ── auto-fill state ── */
   const [selectedCar, setSelectedCar]         = useState('');
@@ -38,12 +42,33 @@ export default function Payments() {
   const [autoStatus, setAutoStatus]           = useState('');
   const [carRecords, setCarRecords]           = useState([]);
 
-  const fetchPayments = () => api.get('/payments').then(r => setPayments(r.data)).catch(console.error);
+  const fetchPayments = () => { setFetching(true); api.get('/payments').then(r => setPayments(r.data)).catch(console.error).finally(() => setFetching(false)); };
 
   useEffect(() => {
     fetchPayments();
     api.get('/servicerecords').then(r => setRecords(r.data)).catch(console.error);
   }, []);
+
+  const exportCSV = () => {
+    const headers = ['Plate', 'Service', 'Service Date', 'Amount Paid', 'Payment Date', 'Received By'];
+    const rows = filtered.map(p => [
+      p.car?.plateNumber || '', p.serviceRecord?.service?.serviceName || '',
+      p.serviceRecord?.serviceDate ? new Date(p.serviceRecord.serviceDate).toLocaleDateString() : '',
+      p.amountPaid.toString(), new Date(p.paymentDate).toLocaleDateString(), p.receivedBy,
+    ]);
+    const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = `payments-${new Date().toISOString().slice(0, 10)}.csv`; a.click();
+    URL.revokeObjectURL(url);
+    toast.success('CSV exported');
+  };
+
+  const filtered = payments.filter(p =>
+    !search || (p.car?.plateNumber || '').toLowerCase().includes(search.toLowerCase()) ||
+    (p.serviceRecord?.service?.serviceName || '').toLowerCase().includes(search.toLowerCase()) ||
+    p.receivedBy.toLowerCase().includes(search.toLowerCase())
+  );
 
   /* ── when user picks a car, filter its service records ── */
   const handleCarSelect = (carId) => {
@@ -174,14 +199,22 @@ export default function Payments() {
       {del && <Modal onConfirm={handleDelete} onCancel={() => setDel(null)} />}
 
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Payments</h1>
           <p className="text-gray-500 text-sm mt-1">Record and manage payment transactions</p>
         </div>
-        <button onClick={openCreate} className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors shadow-sm">
-          <MdAdd size={20} /> Add Payment
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={fetchPayments} disabled={fetching} className="flex items-center gap-1.5 border border-gray-200 hover:border-purple-300 text-gray-600 hover:text-purple-700 bg-white px-3 py-2.5 rounded-xl text-sm font-medium transition-all" title="Refresh">
+            <MdRefresh size={16} className={fetching ? 'animate-spin' : ''} /> Refresh
+          </button>
+          <button onClick={exportCSV} disabled={payments.length === 0} className="flex items-center gap-1.5 border border-gray-200 hover:border-purple-300 text-gray-600 hover:text-purple-700 bg-white px-3 py-2.5 rounded-xl text-sm font-medium transition-all disabled:opacity-40" title="Export CSV">
+            <MdFileDownload size={16} /> Export
+          </button>
+          <button onClick={openCreate} className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors shadow-sm">
+            <MdAdd size={20} /> Add Payment
+          </button>
+        </div>
       </div>
 
       {/* Form */}
@@ -317,8 +350,12 @@ export default function Payments() {
 
       {/* Table */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100">
-          <p className="text-sm text-gray-500">{payments.length} payment(s) recorded</p>
+        <div className="px-6 py-4 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <p className="text-sm text-gray-500">{filtered.length} / {payments.length} payment(s)</p>
+          <div className="relative max-w-xs w-full sm:w-auto">
+            <MdSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+            <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by plate, service, receiver..." className="w-full pl-9 pr-3 py-2 rounded-xl border border-gray-200 bg-gray-50 focus:border-purple-500 focus:bg-white text-sm outline-none transition-all" />
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -330,9 +367,19 @@ export default function Payments() {
               </tr>
             </thead>
             <tbody>
-              {payments.length === 0 ? (
-                <tr><td colSpan={7} className="text-center py-12 text-gray-400">No payments recorded yet</td></tr>
-              ) : payments.map(p => (
+              {filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="text-center py-16">
+                    <div className="flex flex-col items-center gap-3">
+                      <FiAlertCircle size={40} className="text-gray-300" />
+                      <p className="text-gray-400 font-medium">{search ? 'No payments match your search' : 'No payments recorded yet'}</p>
+                      {!search && (
+                        <button onClick={openCreate} className="text-purple-600 hover:text-purple-700 text-sm font-medium">+ Record your first payment</button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ) : filtered.map(p => (
                 <tr key={p._id} className="border-b border-gray-50 hover:bg-purple-50 transition-colors">
                   <td className="py-3 px-4 font-bold text-purple-700 whitespace-nowrap">{p.car?.plateNumber || '—'}</td>
                   <td className="py-3 px-4 text-gray-800 whitespace-nowrap">{p.serviceRecord?.service?.serviceName || '—'}</td>

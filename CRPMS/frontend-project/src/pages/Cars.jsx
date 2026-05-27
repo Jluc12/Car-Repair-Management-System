@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import api from '../api/axios';
 import toast from 'react-hot-toast';
-import { MdAdd, MdDirectionsCar, MdEdit, MdDelete } from 'react-icons/md';
-import { FiInfo } from 'react-icons/fi';
+import { MdAdd, MdDirectionsCar, MdEdit, MdDelete, MdRefresh, MdSearch, MdFileDownload } from 'react-icons/md';
+import { FiInfo, FiAlertCircle } from 'react-icons/fi';
 
 const EMPTY = { plateNumber: '', type: '', model: '', manufacturingYear: '', driverPhone: '', mechanicName: '' };
 const PLATE_RE = /^(RA[A-Z]|RDF|RNP|GR|GP|IT)\d{3}[BCDFGHJKLMNPQRSTVWXYZbcdfghjklmnpqrstvwxyz]$/;
@@ -52,12 +52,35 @@ export default function Cars() {
   const [form, setForm]         = useState(EMPTY);
   const [errors, setErrors]     = useState({});
   const [loading, setLoading]   = useState(false);
+  const [fetching, setFetching] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId]     = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [search, setSearch]     = useState('');
 
-  const fetchCars = () => api.get('/cars').then(r => setCars(r.data)).catch(console.error);
+  useEffect(() => { document.title = 'Cars · SmartPark CRPMS'; }, []);
+
+  const fetchCars = () => { setFetching(true); api.get('/cars').then(r => setCars(r.data)).catch(console.error).finally(() => setFetching(false)); };
   useEffect(() => { fetchCars(); }, []);
+
+  const exportCSV = () => {
+    const headers = ['Plate Number', 'Type', 'Model', 'Year', 'Driver Phone', 'Mechanic'];
+    const rows = filtered.map(c => [c.plateNumber, c.type, c.model, c.manufacturingYear, c.driverPhone, c.mechanicName]);
+    const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = `cars-${new Date().toISOString().slice(0, 10)}.csv`; a.click();
+    URL.revokeObjectURL(url);
+    toast.success('CSV exported');
+  };
+
+  const filtered = cars.filter(c =>
+    !search || c.plateNumber.toLowerCase().includes(search.toLowerCase()) ||
+    c.type.toLowerCase().includes(search.toLowerCase()) ||
+    c.model.toLowerCase().includes(search.toLowerCase()) ||
+    c.mechanicName.toLowerCase().includes(search.toLowerCase()) ||
+    c.driverPhone.includes(search)
+  );
 
   const handleChange = (field, value) => {
     setForm(f => ({ ...f, [field]: value }));
@@ -129,14 +152,22 @@ export default function Cars() {
     <div className="space-y-6">
       {deleteTarget && <DeleteModal name={deleteTarget.plateNumber} onConfirm={handleDelete} onCancel={() => setDeleteTarget(null)} />}
 
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Cars</h1>
           <p className="text-gray-500 text-sm mt-1">Manage registered vehicles</p>
         </div>
-        <button onClick={openCreate} className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors shadow-sm">
-          <MdAdd size={20} /> Add Car
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={fetchCars} disabled={fetching} className="flex items-center gap-1.5 border border-gray-200 hover:border-purple-300 text-gray-600 hover:text-purple-700 bg-white px-3 py-2.5 rounded-xl text-sm font-medium transition-all" title="Refresh">
+            <MdRefresh size={16} className={fetching ? 'animate-spin' : ''} /> Refresh
+          </button>
+          <button onClick={exportCSV} disabled={cars.length === 0} className="flex items-center gap-1.5 border border-gray-200 hover:border-purple-300 text-gray-600 hover:text-purple-700 bg-white px-3 py-2.5 rounded-xl text-sm font-medium transition-all disabled:opacity-40" title="Export CSV">
+            <MdFileDownload size={16} /> Export
+          </button>
+          <button onClick={openCreate} className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors shadow-sm">
+            <MdAdd size={20} /> Add Car
+          </button>
+        </div>
       </div>
 
       {showForm && (
@@ -189,8 +220,12 @@ export default function Cars() {
       )}
 
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100">
-          <p className="text-sm text-gray-500">{cars.length} car(s) registered</p>
+        <div className="px-6 py-4 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <p className="text-sm text-gray-500">{filtered.length} / {cars.length} car(s)</p>
+          <div className="relative max-w-xs w-full sm:w-auto">
+            <MdSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+            <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by plate, type, model..." className="w-full pl-9 pr-3 py-2 rounded-xl border border-gray-200 bg-gray-50 focus:border-purple-500 focus:bg-white text-sm outline-none transition-all" />
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -202,9 +237,19 @@ export default function Cars() {
               </tr>
             </thead>
             <tbody>
-              {cars.length === 0 ? (
-                <tr><td colSpan={7} className="text-center py-12 text-gray-400">No cars registered yet</td></tr>
-              ) : cars.map(car => (
+              {filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="text-center py-16">
+                    <div className="flex flex-col items-center gap-3">
+                      <FiAlertCircle size={40} className="text-gray-300" />
+                      <p className="text-gray-400 font-medium">{search ? 'No cars match your search' : 'No cars registered yet'}</p>
+                      {!search && (
+                        <button onClick={openCreate} className="text-purple-600 hover:text-purple-700 text-sm font-medium">+ Register your first car</button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ) : filtered.map(car => (
                 <tr key={car._id} className="border-b border-gray-50 hover:bg-purple-50 transition-colors">
                   <td className="py-3 px-4 font-bold text-purple-700">{car.plateNumber}</td>
                   <td className="py-3 px-4 text-gray-700">{car.type}</td>

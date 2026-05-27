@@ -1,12 +1,13 @@
-import { useState } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 import {
   MdDirectionsCar, MdDashboard, MdBuild, MdAssignment,
   MdPayment, MdBarChart, MdLogout, MdMenu, MdClose, MdHome,
+  MdChevronRight,
 } from 'react-icons/md';
-import { FiUser } from 'react-icons/fi';
+import { FiUser, FiAlertTriangle } from 'react-icons/fi';
 
 const navItems = [
   { to: '/app/dashboard',       label: 'Dashboard',       icon: MdDashboard    },
@@ -17,22 +18,79 @@ const navItems = [
   { to: '/app/reports',         label: 'Reports',          icon: MdBarChart     },
 ];
 
+const pageTitles = {
+  '/app/dashboard': 'Dashboard',
+  '/app/cars': 'Cars',
+  '/app/services': 'Services',
+  '/app/service-records': 'Service Records',
+  '/app/payments': 'Payments',
+  '/app/reports': 'Reports',
+};
+
 export default function Layout() {
   const { user, logout } = useAuth();
   const navigate         = useNavigate();
+  const location         = useLocation();
   const [open, setOpen]  = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+
+  useEffect(() => {
+    const title = pageTitles[location.pathname] || 'SmartPark CRPMS';
+    document.title = `${title} · SmartPark CRPMS`;
+  }, [location.pathname]);
 
   const handleLogout = async () => {
+    setShowLogoutModal(false);
     await logout();
     toast.success('Logged out successfully');
     navigate('/login');
   };
 
+  const breadcrumbs = (() => {
+    const crumbs = [{ label: 'Home', to: '/' }];
+    const title = pageTitles[location.pathname];
+    if (title) {
+      crumbs.push({ label: title, to: location.pathname });
+    }
+    return crumbs;
+  })();
+
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
+      {/* ── Logout Confirmation Modal ── */}
+      {showLogoutModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm mx-4">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center">
+                <FiAlertTriangle size={20} className="text-red-500" />
+              </div>
+              <div>
+                <h3 className="text-base font-semibold text-gray-800">Confirm Logout</h3>
+                <p className="text-sm text-gray-500">Are you sure you want to sign out?</p>
+              </div>
+            </div>
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={handleLogout}
+                className="flex-1 bg-red-500 hover:bg-red-600 text-white py-2.5 rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2"
+              >
+                <MdLogout size={16} /> Logout
+              </button>
+              <button
+                onClick={() => setShowLogoutModal(false)}
+                className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-2.5 rounded-xl text-sm font-semibold transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Desktop Sidebar ── */}
       <aside className="hidden lg:flex flex-col w-64 bg-gradient-to-b from-purple-900 to-purple-800 text-white shrink-0">
-        <SidebarContent user={user} onLogout={handleLogout} onClose={null} />
+        <SidebarContent user={user} onLogout={() => setShowLogoutModal(true)} onClose={null} />
       </aside>
 
       {/* ── Mobile Overlay ── */}
@@ -40,18 +98,32 @@ export default function Layout() {
         <div className="fixed inset-0 z-40 lg:hidden">
           <div className="absolute inset-0 bg-black bg-opacity-50" onClick={() => setOpen(false)} />
           <aside className="relative z-50 flex flex-col w-72 h-full bg-gradient-to-b from-purple-900 to-purple-800 text-white">
-            <SidebarContent user={user} onLogout={handleLogout} onClose={() => setOpen(false)} />
+            <SidebarContent user={user} onLogout={() => { setOpen(false); setShowLogoutModal(true); }} onClose={() => setOpen(false)} />
           </aside>
         </div>
       )}
 
       {/* ── Main ── */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="bg-white border-b border-gray-200 px-4 lg:px-6 py-4 flex items-center gap-4 shadow-sm shrink-0">
+        <header className="bg-white border-b border-gray-200 px-4 lg:px-6 py-3 flex items-center gap-4 shadow-sm shrink-0">
           <button onClick={() => setOpen(true)} className="lg:hidden text-gray-500 hover:text-purple-600">
             <MdMenu size={24} />
           </button>
-          <h2 className="text-lg font-semibold text-gray-800">Car Repair Management System</h2>
+          <div className="flex flex-col">
+            <div className="flex items-center gap-1.5 text-xs text-gray-400">
+              {breadcrumbs.map((crumb, i) => (
+                <span key={crumb.to} className="flex items-center gap-1.5">
+                  {i > 0 && <MdChevronRight size={14} className="text-gray-300" />}
+                  {i < breadcrumbs.length - 1 ? (
+                    <button onClick={() => navigate(crumb.to)} className="hover:text-purple-600 transition-colors">{crumb.label}</button>
+                  ) : (
+                    <span className="text-gray-600 font-medium">{crumb.label}</span>
+                  )}
+                </span>
+              ))}
+            </div>
+            <h2 className="text-lg font-bold text-gray-800 leading-tight">{pageTitles[location.pathname] || 'Car Repair Management System'}</h2>
+          </div>
           <div className="ml-auto flex items-center gap-2 text-sm text-gray-500">
             <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
             <span>Online</span>
