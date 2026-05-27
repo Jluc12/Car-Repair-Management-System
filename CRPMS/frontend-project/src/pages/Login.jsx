@@ -7,7 +7,7 @@ import Stars from "../components/Stars";
 import {
   FiUser, FiLock, FiEye, FiEyeOff, FiLogIn,
   FiUserPlus, FiCheckCircle, FiShield, FiTrendingUp,
-  FiClipboard, FiArrowLeft, FiKey,
+  FiClipboard, FiArrowLeft, FiKey, FiHome,
 } from "react-icons/fi";
 import { MdBuild } from "react-icons/md";
 
@@ -240,6 +240,18 @@ export default function Login() {
               <MdBuild size={20} className="text-white" />
             </div>
             <span className="text-white font-bold text-lg">SmartPark CRPMS</span>
+          </div>
+
+          {/* home button */}
+          <div className="flex items-center justify-between mb-6">
+            <button
+              type="button"
+              onClick={() => navigate("/")}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-300 hover:text-white text-sm transition-all"
+            >
+              <FiHome size={16} /> Home
+            </button>
+            <div />
           </div>
 
           {/* ════════════════════════════════════════
