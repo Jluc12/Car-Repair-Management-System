@@ -1,6 +1,19 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap");
 @import "tailwindcss";
 
+@theme {
+  --animate-fade-in: fade-in 0.2s ease-out;
+  --animate-slide-up: slide-up 0.3s ease-out;
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes slide-up {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+}
+
 * { box-sizing: border-box; }
 
 body {
@@ -13,7 +26,6 @@ body {
 ::-webkit-scrollbar-thumb { background: #a855f7; border-radius: 99px; }
 ::-webkit-scrollbar-thumb:hover { background: #7e22ce; }
 
-/* ── print styles for reports ── */
 @media print {
   body { background: #fff !important; }
   nav, aside, .sidebar, button, .no-print { display: none !important; }
@@ -22,6 +34,4 @@ body {
   th, td { border: 1px solid #ddd; padding: 8px; }
 }
 
-/* ── page fade-in animation ── */
-main > * { animation: fadeIn 0.25s ease-out; }
-@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+main > * { animation: slide-up 0.25s ease-out; }

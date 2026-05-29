@@ -59,7 +59,7 @@ export default function Dashboard() {
 
   const loadStats = (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
-    else setLoading(true);
+    else { setLoading(true); setStats(null); }
     api.get('/dashboard/stats')
       .then(res => setStats(res.data))
       .catch(console.error)

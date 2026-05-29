@@ -29,7 +29,8 @@ export default function ServiceRecords() {
 
   useEffect(() => { document.title = 'Service Records · SmartPark CRPMS'; }, []);
 
-  const fetchAll = () => {
+  const fetchAll = (reset = false) => {
+    if (reset) { cancelForm(); setSearch(''); setDeleteId(null); setErrors({}); }
     setFetching(true);
     api.get('/servicerecords').then(r => setRecords(r.data)).catch(console.error).finally(() => setFetching(false));
   };
@@ -153,7 +154,7 @@ export default function ServiceRecords() {
           <p className="text-gray-500 text-sm mt-1">Track car service history and payments</p>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={fetchAll} disabled={fetching} className="flex items-center gap-1.5 border border-gray-200 hover:border-purple-300 text-gray-600 hover:text-purple-700 bg-white px-3 py-2.5 rounded-xl text-sm font-medium transition-all" title="Refresh">
+          <button onClick={() => fetchAll(true)} disabled={fetching} className="flex items-center gap-1.5 border border-gray-200 hover:border-purple-300 text-gray-600 hover:text-purple-700 bg-white px-3 py-2.5 rounded-xl text-sm font-medium transition-all" title="Refresh & reset">
             <MdRefresh size={16} className={fetching ? 'animate-spin' : ''} /> Refresh
           </button>
           <button onClick={exportCSV} disabled={records.length === 0} className="flex items-center gap-1.5 border border-gray-200 hover:border-purple-300 text-gray-600 hover:text-purple-700 bg-white px-3 py-2.5 rounded-xl text-sm font-medium transition-all disabled:opacity-40" title="Export CSV">

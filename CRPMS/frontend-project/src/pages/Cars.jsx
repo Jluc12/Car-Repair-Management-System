@@ -60,7 +60,16 @@ export default function Cars() {
 
   useEffect(() => { document.title = 'Cars · SmartPark CRPMS'; }, []);
 
-  const fetchCars = () => { setFetching(true); api.get('/cars').then(r => setCars(r.data)).catch(console.error).finally(() => setFetching(false)); };
+  const fetchCars = (reset = false) => {
+    if (reset) {
+      cancelForm();
+      setSearch('');
+      setDeleteTarget(null);
+      setErrors({});
+    }
+    setFetching(true);
+    api.get('/cars').then(r => setCars(r.data)).catch(console.error).finally(() => setFetching(false));
+  };
   useEffect(() => { fetchCars(); }, []);
 
   const exportCSV = () => {
@@ -158,7 +167,7 @@ export default function Cars() {
           <p className="text-gray-500 text-sm mt-1">Manage registered vehicles</p>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={fetchCars} disabled={fetching} className="flex items-center gap-1.5 border border-gray-200 hover:border-purple-300 text-gray-600 hover:text-purple-700 bg-white px-3 py-2.5 rounded-xl text-sm font-medium transition-all" title="Refresh">
+          <button onClick={() => fetchCars(true)} disabled={fetching} className="flex items-center gap-1.5 border border-gray-200 hover:border-purple-300 text-gray-600 hover:text-purple-700 bg-white px-3 py-2.5 rounded-xl text-sm font-medium transition-all" title="Refresh & reset">
             <MdRefresh size={16} className={fetching ? 'animate-spin' : ''} /> Refresh
           </button>
           <button onClick={exportCSV} disabled={cars.length === 0} className="flex items-center gap-1.5 border border-gray-200 hover:border-purple-300 text-gray-600 hover:text-purple-700 bg-white px-3 py-2.5 rounded-xl text-sm font-medium transition-all disabled:opacity-40" title="Export CSV">

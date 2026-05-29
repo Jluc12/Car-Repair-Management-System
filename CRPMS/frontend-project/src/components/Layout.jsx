@@ -5,7 +5,8 @@ import toast from 'react-hot-toast';
 import {
   MdDirectionsCar, MdDashboard, MdBuild, MdAssignment,
   MdPayment, MdBarChart, MdLogout, MdMenu, MdClose, MdHome,
-  MdChevronRight,
+  MdChevronRight, MdNotifications, MdCheckCircle, MdWarning,
+  MdAttachMoney, MdInfo,
 } from 'react-icons/md';
 import { FiUser, FiAlertTriangle } from 'react-icons/fi';
 
@@ -26,6 +27,60 @@ const pageTitles = {
   '/app/payments': 'Payments',
   '/app/reports': 'Reports',
 };
+
+const MOCK_NOTIFICATIONS = [
+  { id: 1, icon: MdCheckCircle, color: 'text-green-400', text: 'Payment received — RAB 123B', time: '2m ago' },
+  { id: 2, icon: MdWarning, color: 'text-yellow-400', text: 'Service record #SRV004 is unpaid', time: '15m ago' },
+  { id: 3, icon: MdAttachMoney, color: 'text-purple-400', text: 'Daily report: RWF 125,000 collected', time: '1h ago' },
+  { id: 4, icon: MdInfo, color: 'text-blue-400', text: 'New car registered — RDF 456C', time: '2h ago' },
+];
+
+function NotiBell() {
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = () => setOpen(false);
+    window.addEventListener('click', close);
+    return () => window.removeEventListener('click', close);
+  }, [open]);
+
+  return (
+    <div className="relative" onClick={e => e.stopPropagation()}>
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="relative p-2 rounded-xl hover:bg-purple-50 text-gray-500 hover:text-purple-700 transition-all"
+      >
+        <MdNotifications size={22} />
+        <span className="absolute -top-0.5 -right-0.5 w-5 h-5 bg-red-500 border-2 border-white rounded-full text-[10px] font-bold text-white flex items-center justify-center">
+          {MOCK_NOTIFICATIONS.length}
+        </span>
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden z-50" onClick={e => e.stopPropagation()}>
+          <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+            <p className="text-sm font-bold text-gray-800">Notifications</p>
+            <span className="text-xs text-purple-600 font-medium cursor-pointer hover:underline">{MOCK_NOTIFICATIONS.length} new</span>
+          </div>
+          <div className="max-h-64 overflow-y-auto">
+            {MOCK_NOTIFICATIONS.map(n => (
+              <div key={n.id} className="flex items-start gap-3 px-4 py-3 hover:bg-purple-50 transition-colors cursor-pointer border-b border-gray-50 last:border-0">
+                <div className={`mt-0.5 ${n.color}`}><n.icon size={18} /></div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-gray-700 leading-snug">{n.text}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">{n.time}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="px-4 py-2.5 border-t border-gray-100 text-center">
+            <button className="text-xs text-purple-600 font-medium hover:underline">View all notifications</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function Layout() {
   const { user, logout } = useAuth();
@@ -57,10 +112,9 @@ export default function Layout() {
 
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
-      {/* ── Logout Confirmation Modal ── */}
       {showLogoutModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm mx-4">
+          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm mx-4 animate-fade-in">
             <div className="flex items-center gap-3 mb-3">
               <div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center">
                 <FiAlertTriangle size={20} className="text-red-500" />
@@ -88,12 +142,10 @@ export default function Layout() {
         </div>
       )}
 
-      {/* ── Desktop Sidebar ── */}
       <aside className="hidden lg:flex flex-col w-64 bg-gradient-to-b from-purple-900 to-purple-800 text-white shrink-0">
         <SidebarContent user={user} onLogout={() => setShowLogoutModal(true)} onClose={null} />
       </aside>
 
-      {/* ── Mobile Overlay ── */}
       {open && (
         <div className="fixed inset-0 z-40 lg:hidden">
           <div className="absolute inset-0 bg-black bg-opacity-50" onClick={() => setOpen(false)} />
@@ -103,7 +155,6 @@ export default function Layout() {
         </div>
       )}
 
-      {/* ── Main ── */}
       <div className="flex-1 flex flex-col overflow-hidden">
         <header className="bg-white border-b border-gray-200 px-4 lg:px-6 py-3 flex items-center gap-4 shadow-sm shrink-0">
           <button onClick={() => setOpen(true)} className="lg:hidden text-gray-500 hover:text-purple-600">
@@ -124,9 +175,15 @@ export default function Layout() {
             </div>
             <h2 className="text-lg font-bold text-gray-800 leading-tight">{pageTitles[location.pathname] || 'Car Repair Management System'}</h2>
           </div>
-          <div className="ml-auto flex items-center gap-2 text-sm text-gray-500">
-            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-            <span>Online</span>
+          <div className="ml-auto flex items-center gap-3">
+            <NotiBell />
+            <div className="flex items-center gap-2 text-sm text-gray-500 bg-gray-100 rounded-full pl-3 pr-1 py-1">
+              <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+              <span className="hidden sm:inline text-xs font-medium">Online</span>
+              <div className="w-7 h-7 rounded-full bg-purple-600 flex items-center justify-center ml-1">
+                <FiUser size={14} className="text-white" />
+              </div>
+            </div>
           </div>
         </header>
         <main className="flex-1 overflow-y-auto p-4 lg:p-6">
@@ -140,7 +197,6 @@ export default function Layout() {
 function SidebarContent({ user, onLogout, onClose }) {
   return (
     <>
-      {/* Logo */}
       <div className="flex items-center gap-3 px-6 py-6 border-b border-purple-700">
         <div className="w-10 h-10 bg-white bg-opacity-20 rounded-xl flex items-center justify-center">
           <MdDirectionsCar className="text-white text-2xl" />
@@ -156,7 +212,6 @@ function SidebarContent({ user, onLogout, onClose }) {
         )}
       </div>
 
-      {/* Nav links */}
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
         {navItems.map(({ to, label, icon: Icon }) => (
           <NavLink
@@ -177,7 +232,6 @@ function SidebarContent({ user, onLogout, onClose }) {
         ))}
       </nav>
 
-      {/* Home button */}
       <div className="px-4 py-2 border-t border-purple-700">
         <NavLink
           to="/"
@@ -188,7 +242,6 @@ function SidebarContent({ user, onLogout, onClose }) {
         </NavLink>
       </div>
 
-      {/* User + Logout */}
       <div className="px-4 py-4 border-t border-purple-700">
         <div className="flex items-center gap-3 px-3 py-2 mb-2">
           <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center">

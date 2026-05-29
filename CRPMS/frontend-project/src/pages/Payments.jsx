@@ -42,7 +42,10 @@ export default function Payments() {
   const [autoStatus, setAutoStatus]           = useState('');
   const [carRecords, setCarRecords]           = useState([]);
 
-  const fetchPayments = () => { setFetching(true); api.get('/payments').then(r => setPayments(r.data)).catch(console.error).finally(() => setFetching(false)); };
+  const fetchPayments = (reset = false) => {
+    if (reset) { cancel(); setSearch(''); setDel(null); setErrors({}); }
+    setFetching(true); api.get('/payments').then(r => setPayments(r.data)).catch(console.error).finally(() => setFetching(false));
+  };
 
   useEffect(() => {
     fetchPayments();
@@ -205,7 +208,7 @@ export default function Payments() {
           <p className="text-gray-500 text-sm mt-1">Record and manage payment transactions</p>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={fetchPayments} disabled={fetching} className="flex items-center gap-1.5 border border-gray-200 hover:border-purple-300 text-gray-600 hover:text-purple-700 bg-white px-3 py-2.5 rounded-xl text-sm font-medium transition-all" title="Refresh">
+          <button onClick={() => fetchPayments(true)} disabled={fetching} className="flex items-center gap-1.5 border border-gray-200 hover:border-purple-300 text-gray-600 hover:text-purple-700 bg-white px-3 py-2.5 rounded-xl text-sm font-medium transition-all" title="Refresh & reset">
             <MdRefresh size={16} className={fetching ? 'animate-spin' : ''} /> Refresh
           </button>
           <button onClick={exportCSV} disabled={payments.length === 0} className="flex items-center gap-1.5 border border-gray-200 hover:border-purple-300 text-gray-600 hover:text-purple-700 bg-white px-3 py-2.5 rounded-xl text-sm font-medium transition-all disabled:opacity-40" title="Export CSV">
