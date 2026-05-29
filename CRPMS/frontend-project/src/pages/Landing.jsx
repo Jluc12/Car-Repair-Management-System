@@ -143,7 +143,7 @@ export default function Landing() {
             </div>
             <span className="text-gray-400 text-sm">SmartPark CRPMS v1.0</span>
           </div>
-          <p className="text-gray-600 text-xs">© 2025 SmartPark · Rubavu District, Western Province · All rights reserved.</p>
+          <p className="text-gray-600 text-xs">© {new Date().getFullYear()} SmartPark · Rubavu District, Western Province · All rights reserved.</p>
         </div>
       </footer>
     </div>

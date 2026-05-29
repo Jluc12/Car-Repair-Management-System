@@ -3,18 +3,32 @@ const mongoose = require('mongoose');
 const session = require('express-session');
 const MongoStore = require('connect-mongo');
 const cors = require('cors');
+const helmet = require('helmet');
 const dotenv = require('dotenv');
 
 dotenv.config();
 
+// ─── Validate required env vars ───────────────────────────────────────────────
+const REQUIRED_ENV = ['MONGO_URI', 'SESSION_SECRET'];
+const missing = REQUIRED_ENV.filter(k => !process.env[k]);
+if (missing.length) {
+  console.error(`❌  Missing required environment variables: ${missing.join(', ')}`);
+  process.exit(1);
+}
+
 const app = express();
 
-// ─── Middleware ───────────────────────────────────────────────────────────────
+// ─── Security headers ─────────────────────────────────────────────────────────
+app.use(helmet());
+
+// ─── Body parsing ─────────────────────────────────────────────────────────────
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// ─── CORS ─────────────────────────────────────────────────────────────────────
+const CORS_ORIGIN = process.env.CLIENT_URL || 'http://localhost:5173';
 app.use(cors({
-  origin: 'http://localhost:5173',
+  origin: CORS_ORIGIN,
   credentials: true,
 }));
 
@@ -29,9 +43,9 @@ app.use(session({
     collectionName: 'sessions',
   }),
   cookie: {
-    secure: false,
+    secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
-    maxAge: 1000 * 60 * 60 * 8, // 8 hours
+    maxAge: 1000 * 60 * 60 * 8,
   },
 }));
 
@@ -51,6 +65,15 @@ app.use('/api/dashboard',     require('./routes/dashboard'));
 
 // ─── Health check ─────────────────────────────────────────────────────────────
 app.get('/', (req, res) => res.json({ message: 'CRPMS API is running 🚗' }));
+
+// ─── Global error handler ─────────────────────────────────────────────────────
+app.use((err, _req, res, _next) => {
+  console.error('❌  Unhandled error:', err);
+  res.status(err.status || 500).json({
+    message: err.message || 'Internal server error.',
+    ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
+  });
+});
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`🚀  Server running on http://localhost:${PORT}`));

@@ -2,8 +2,31 @@ const express = require('express');
 const router  = express.Router();
 const Car     = require('../models/Car');
 const { requireAuth } = require('../middleware/auth');
+
+const ALLOWED_FIELDS = ['plateNumber', 'type', 'model', 'manufacturingYear', 'driverPhone', 'mechanicName'];
+
+function pick(body) {
+  const out = {};
+  for (const k of ALLOWED_FIELDS) {
+    if (body[k] !== undefined) out[k] = body[k];
+  }
+  return out;
+}
+
 router.get('/', requireAuth, async (req, res) => {
-  try { res.json(await Car.find().sort({ createdAt: -1 })); }
+  try {
+    const { page, limit } = req.query;
+    if (page) {
+      const p = Math.max(1, parseInt(page)) || 1;
+      const l = Math.min(100, Math.max(1, parseInt(limit)) || 20);
+      const [data, total] = await Promise.all([
+        Car.find().sort({ createdAt: -1 }).skip((p - 1) * l).limit(l),
+        Car.countDocuments(),
+      ]);
+      return res.json({ data, total, page: p, limit: l, totalPages: Math.ceil(total / l) });
+    }
+    res.json(await Car.find().sort({ createdAt: -1 }));
+  }
   catch (err) { res.status(500).json({ message: err.message }); }
 });
 router.get('/:id', requireAuth, async (req, res) => {
@@ -11,11 +34,11 @@ router.get('/:id', requireAuth, async (req, res) => {
   catch (err) { res.status(500).json({ message: err.message }); }
 });
 router.post('/', requireAuth, async (req, res) => {
-  try { const car = new Car(req.body); await car.save(); res.status(201).json({ message: 'Car added successfully.', car }); }
+  try { const car = new Car(pick(req.body)); await car.save(); res.status(201).json({ message: 'Car added successfully.', car }); }
   catch (err) { if (err.code === 11000) return res.status(409).json({ message: 'Plate number already exists.' }); res.status(400).json({ message: err.message }); }
 });
 router.put('/:id', requireAuth, async (req, res) => {
-  try { const car = await Car.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true }); if (!car) return res.status(404).json({ message: 'Car not found.' }); res.json({ message: 'Car updated successfully.', car }); }
+  try { const car = await Car.findByIdAndUpdate(req.params.id, pick(req.body), { new: true, runValidators: true }); if (!car) return res.status(404).json({ message: 'Car not found.' }); res.json({ message: 'Car updated successfully.', car }); }
   catch (err) { if (err.code === 11000) return res.status(409).json({ message: 'Plate number already exists.' }); res.status(400).json({ message: err.message }); }
 });
 router.delete('/:id', requireAuth, async (req, res) => {
