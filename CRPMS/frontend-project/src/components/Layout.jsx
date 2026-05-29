@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
@@ -37,16 +37,19 @@ const MOCK_NOTIFICATIONS = [
 
 function NotiBell() {
   const [open, setOpen] = useState(false);
+  const ref = useRef(null);
 
   useEffect(() => {
     if (!open) return;
-    const close = () => setOpen(false);
-    window.addEventListener('click', close);
-    return () => window.removeEventListener('click', close);
+    const handleClick = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
   }, [open]);
 
   return (
-    <div className="relative" onClick={e => e.stopPropagation()}>
+    <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen(v => !v)}
         className="relative p-2 rounded-xl hover:bg-purple-50 text-gray-500 hover:text-purple-700 transition-all"
@@ -57,7 +60,7 @@ function NotiBell() {
         </span>
       </button>
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden z-50" onClick={e => e.stopPropagation()}>
+        <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden z-50">
           <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
             <p className="text-sm font-bold text-gray-800">Notifications</p>
             <span className="text-xs text-purple-600 font-medium cursor-pointer hover:underline">{MOCK_NOTIFICATIONS.length} new</span>
