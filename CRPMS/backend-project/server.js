@@ -62,6 +62,7 @@ app.use('/api/servicerecords',require('./routes/serviceRecords'));
 app.use('/api/payments',      require('./routes/payments'));
 app.use('/api/reports',       require('./routes/reports'));
 app.use('/api/dashboard',     require('./routes/dashboard'));
+app.use('/api/activity',      require('./routes/activity'));
 
 // ─── Health check ─────────────────────────────────────────────────────────────
 app.get('/', (req, res) => res.json({ message: 'CRPMS API is running 🚗' }));

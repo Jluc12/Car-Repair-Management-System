@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import api from '../api/axios';
 import toast from 'react-hot-toast';
 import {
   MdDirectionsCar, MdDashboard, MdBuild, MdAssignment,
@@ -28,16 +29,45 @@ const pageTitles = {
   '/app/reports': 'Reports',
 };
 
-const MOCK_NOTIFICATIONS = [
-  { id: 1, icon: MdCheckCircle, color: 'text-green-400', text: 'Payment received — RAB 123B', time: '2m ago' },
-  { id: 2, icon: MdWarning, color: 'text-yellow-400', text: 'Service record #SRV004 is unpaid', time: '15m ago' },
-  { id: 3, icon: MdAttachMoney, color: 'text-purple-400', text: 'Daily report: RWF 125,000 collected', time: '1h ago' },
-  { id: 4, icon: MdInfo, color: 'text-blue-400', text: 'New car registered — RDF 456C', time: '2h ago' },
-];
+const NOTI_CONFIG = {
+  payment:      { icon: MdAttachMoney, color: 'text-green-400', bg: 'bg-green-50' },
+  service_paid: { icon: MdCheckCircle, color: 'text-green-400', bg: 'bg-green-50' },
+  service_record: { icon: MdInfo, color: 'text-blue-400', bg: 'bg-blue-50' },
+  car:          { icon: MdDirectionsCar, color: 'text-purple-400', bg: 'bg-purple-50' },
+};
+
+function formatTime(dateStr) {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  if (diff < 60000) return 'just now';
+  if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+  return `${Math.floor(diff / 86400000)}d ago`;
+}
 
 function NotiBell() {
   const [open, setOpen] = useState(false);
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(false);
   const ref = useRef(null);
+  const lastCheck = useRef(localStorage.getItem('notiLastCheck') || Date.now());
+
+  const fetchNotis = async () => {
+    setLoading(true);
+    try {
+      const res = await api.get('/activity/recent');
+      setItems(res.data.notifications || []);
+    } catch { setItems([]); }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { fetchNotis(); }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    localStorage.setItem('notiLastCheck', Date.now());
+    lastCheck.current = Date.now();
+    if (!items.length) fetchNotis();
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -48,36 +78,48 @@ function NotiBell() {
     return () => document.removeEventListener('mousedown', handleClick);
   }, [open]);
 
+  const unread = items.filter(n => new Date(n.time) > Number(lastCheck.current)).length;
+
   return (
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen(v => !v)}
         className="relative p-2 rounded-xl hover:bg-purple-50 text-gray-500 hover:text-purple-700 transition-all"
+        title="Notifications"
       >
         <MdNotifications size={22} />
-        <span className="absolute -top-0.5 -right-0.5 w-5 h-5 bg-red-500 border-2 border-white rounded-full text-[10px] font-bold text-white flex items-center justify-center">
-          {MOCK_NOTIFICATIONS.length}
-        </span>
+        {unread > 0 && (
+          <span className="absolute -top-0.5 -right-0.5 w-5 h-5 bg-red-500 border-2 border-white rounded-full text-[10px] font-bold text-white flex items-center justify-center animate-fade-in">
+            {unread > 9 ? '9+' : unread}
+          </span>
+        )}
       </button>
       {open && (
         <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden z-50">
           <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
             <p className="text-sm font-bold text-gray-800">Notifications</p>
-            <span className="text-xs text-purple-600 font-medium cursor-pointer hover:underline">{MOCK_NOTIFICATIONS.length} new</span>
+            {unread > 0 && <span className="text-xs text-purple-600 font-medium">{unread} new</span>}
           </div>
-          <div className="max-h-64 overflow-y-auto">
-            {MOCK_NOTIFICATIONS.map(n => (
-              <div key={n.id} className="flex items-start gap-3 px-4 py-3 hover:bg-purple-50 transition-colors cursor-pointer border-b border-gray-50 last:border-0">
-                <div className={`mt-0.5 ${n.color}`}><n.icon size={18} /></div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-gray-700 leading-snug">{n.text}</p>
-                  <p className="text-xs text-gray-400 mt-0.5">{n.time}</p>
-                </div>
+          <div className="max-h-72 overflow-y-auto">
+            {loading ? (
+              <div className="flex items-center justify-center py-8">
+                <span className="w-5 h-5 border-2 border-purple-600 border-t-transparent rounded-full animate-spin" />
               </div>
-            ))}
-          </div>
-          <div className="px-4 py-2.5 border-t border-gray-100 text-center">
-            <button className="text-xs text-purple-600 font-medium hover:underline">View all notifications</button>
+            ) : items.length === 0 ? (
+              <div className="text-center py-8 text-gray-400 text-sm">No activity yet</div>
+            ) : items.map(n => {
+              const cfg = NOTI_CONFIG[n.type] || { icon: MdInfo, color: 'text-gray-400', bg: 'bg-gray-50' };
+              const Icon = cfg.icon;
+              return (
+                <div key={n.id} className={`flex items-start gap-3 px-4 py-3 transition-colors border-b border-gray-50 last:border-0 ${cfg.bg}`}>
+                  <div className={`mt-0.5 ${cfg.color}`}><Icon size={18} /></div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-gray-700 leading-snug">{n.message}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">{formatTime(n.time)}</p>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
